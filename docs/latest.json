@@ -1,0 +1,31 @@
+{
+  "status": "success",
+  "provider": "PykrxProvider",
+  "requested_date": "2026-10-06",
+  "as_of": "2026-10-06",
+  "generated_at": "2026-10-07T00:54:06.355109+09:00",
+  "settings": {
+    "weights": [
+      10,
+      30,
+      40,
+      20
+    ],
+    "avg_turnover_min": 5000000000,
+    "turnover_min": 10000000000,
+    "rs20_min": 90,
+    "rs5_min": 90,
+    "top": 20
+  },
+  "statistics": {
+    "universe": 2766,
+    "eligible": 2745,
+    "excluded_short_or_invalid_history": 21,
+    "matched": 81,
+    "displayed": 20
+  },
+  "percentile": "average rank / eligible combined universe size * 100",
+  "price_basis": "adjusted closes",
+  "turnover_currency": "KRW",
+  "average_includes_as_of": true
+}
