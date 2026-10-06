@@ -27,5 +27,8 @@
   "percentile": "average rank / eligible combined universe size * 100",
   "price_basis": "adjusted closes",
   "turnover_currency": "KRW",
-  "average_includes_as_of": true
+  "average_includes_as_of": true,
+  "sector_source": "KRX industry classification",
+  "sector_as_of": "2026-10-06",
+  "sector_enriched_at": "2026-10-07T06:50:24.370135+09:00"
 }
