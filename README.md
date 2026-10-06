@@ -81,3 +81,5 @@ KRX 공식 Open API로 전환할 때 `MarketDataProvider.collect(requested)`를 
 - Pages 설정은 GitHub Actions 방식입니다. Workflow는 `contents: write`(결과 보관), `pages: write`, `id-token: write`(배포)를 사용합니다.
 
 남은 확장: 52주 신고가 거리, 최근 7거래일 RS 그래프, Telegram Bot.
+
+종목명 앞에 기준일의 KRX 업종 분류를 표시합니다. 업종명으로 검색할 수 있으며 CSV에도 sector 열이 포함됩니다. 조회되지 않은 업종은 미분류로 표시합니다. 기존 게시 결과에는 업종만 보강하며 RS 점수와 순서는 변경하지 않습니다.

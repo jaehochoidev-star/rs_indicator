@@ -88,6 +88,29 @@ class PykrxProvider:
                 self.stock = stock
             return self._collect(requested)
 
+    def get_sectors(self, as_of):
+        """KRX industry labels on the valuation date, keyed by six-digit ticker."""
+        labels = {}
+        with request_timeout(self.timeout):
+            if self.stock is None:
+                with redirect_stdout(io.StringIO()):
+                    from pykrx import stock
+                self.stock = stock
+            anchor = as_of.strftime("%Y%m%d")
+            for market in ("KOSPI", "KOSDAQ"):
+                try:
+                    frame = self._frame(
+                        f"{anchor}/sectors-{market}",
+                        lambda m=market: self.stock.get_market_sector_classifications(anchor, m),
+                        ["업종명"],
+                    )
+                    for ticker, sector in frame["업종명"].items():
+                        if pd.notna(sector) and str(sector).strip() not in ("", "-", "nan"):
+                            labels[str(ticker).zfill(6)] = str(sector).strip()
+                except DataError:
+                    self.progress(f"WARNING: {market} sectors unavailable; showing 미분류.")
+        return labels
+
     def _collect(self, requested):
         start = requested - timedelta(days=180)
         end_key, start_key = requested.strftime("%Y%m%d"), start.strftime("%Y%m%d")
@@ -128,6 +151,9 @@ class PykrxProvider:
         universe = pd.concat(parts)
         if universe.index.has_duplicates:
             raise DataError("Duplicated tickers in KOSPI/KOSDAQ universe.")
+
+        sectors = self.get_sectors(as_of)
+        universe["sector"] = [sectors.get(ticker, "미분류") for ticker in universe.index]
 
         values = []
         for session in sessions[-20:]:

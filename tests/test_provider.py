@@ -51,6 +51,10 @@ def test_provider_end_to_end_and_weekend_resolution(tmp_path, monkeypatch):
             ticker = "005930" if market == "KOSPI" else "035900"
             return pd.DataFrame({"종목명": ["FIXTURE"], "종가": [100]}, index=[ticker])
 
+        def get_market_sector_classifications(self, day, market):
+            ticker = "005930" if market == "KOSPI" else "035900"
+            return pd.DataFrame({"업종명": ["전기전자" if market == "KOSPI" else "오락·문화"]}, index=[ticker])
+
         def get_market_ohlcv_by_ticker(self, day, market):
             ticker = "005930" if market == "KOSPI" else "035900"
             return pd.DataFrame({"거래대금": [12_000_000_000]}, index=[ticker])
@@ -63,6 +67,8 @@ def test_provider_end_to_end_and_weekend_resolution(tmp_path, monkeypatch):
     provider = PykrxProvider(tmp_path, stock_api=FakeStock(), progress=lambda _: None)
     result = provider.collect(requested)
     assert result.as_of.isoformat() == "2026-03-27"
+    assert result.universe.loc["005930", "sector"] == "전기전자"
+    assert result.universe.loc["035900", "sector"] == "오락·문화"
     assert result.closes.shape == (61, 2)
     assert result.turnover.shape == (20, 2)
     assert result.turnover.loc[sessions[-1], "005930"] == 12_000_000_000

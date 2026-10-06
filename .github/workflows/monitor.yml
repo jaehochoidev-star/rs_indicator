@@ -86,6 +86,12 @@ jobs:
         with:
           path: data/cache
           key: krx-v1-${{ runner.os }}-${{ steps.date.outputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Add sectors to already published results
+        if: github.event_name == 'push'
+        env:
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
+        run: python -m krx_rs_monitor.sectors --source docs --output output
       - name: Build dashboard
         id: ready
         run: |
@@ -100,7 +106,7 @@ jobs:
             echo 'publish=false' >> "$GITHUB_OUTPUT"
           fi
       - name: Keep latest dashboard in repository
-        if: steps.ready.outputs.publish == 'true' && github.event_name != 'push'
+        if: steps.ready.outputs.publish == 'true'
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
