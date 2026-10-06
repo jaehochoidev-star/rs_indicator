@@ -46,3 +46,18 @@ cd D:\ChatGPT-GitHub\rs_indicator
 ```
 
 첫 수집은 종목별 수정종가 조회로 수십 분 이상 걸릴 수 있습니다. 성공 시 실제 기준일, 모집단 및 제외 종목 수, 조건 충족 수, TOP20을 출력하고 `output/`에 CSV와 실행 메타데이터를 저장합니다.
+
+## 자동 실행 및 Pages 추가 — 2026-10-07 KST
+
+- GitHub Secrets `KRX_ID`, `KRX_PW` 등록 확인(값은 읽거나 출력하지 않음).
+- 저장소 Pages를 GitHub Actions 방식으로 활성화.
+- 월~금 21:00 KST 수집 시작 예약: `.github/workflows/monitor.yml`, cron `0 12 * * 1-5`.
+- 로컬 테스트: **24 passed in 4.09s**. GitHub Ubuntu에서도 테스트 및 초기 배포 성공.
+- 첫 구현 커밋: `962899e` (main에 push 완료).
+- 초기 배포 성공: https://github.com/jaehochoidev-star/rs_indicator/actions/runs/37483219973
+- 공개 주소: https://jaehochoidev-star.github.io/rs_indicator/
+- 실제 브라우저에서 공개 페이지 로드 확인. 별도 가상 데이터 미리보기로 검색, 시장 필터, 검색 결과 없음, 종목명 HTML 이스케이프 동작 확인. 가상 데이터는 공개하지 않음.
+- 첫 GitHub 전체 수집 실행: https://github.com/jaehochoidev-star/rs_indicator/actions/runs/37483342674
+- 이 기록 작성 시 첫 GitHub 수집은 진행 중이며 **실제 순위 생성 및 그 데이터의 배포 성공은 아직 확인되지 않음**. 성공 시 workflow가 docs를 갱신하고 같은 URL에 자동 배포함.
+- 사용자 PowerShell의 기존 수집은 중단하지 않았으며 별개로 계속 진행됨.
+- 향후 정기 실행은 GitHub 서버에서 이루어져 PC 전원과 무관함. GitHub 예약 실행은 혼잡 시 지연될 수 있고, 페이지는 21시 수집 시작 후 전체 수집이 끝나야 갱신됨.
