@@ -16,7 +16,7 @@ class ScreenConfig:
     turnover_min: float = 10_000_000_000
     rs20_min: float = 90
     rs5_min: float = 90
-    top: int = 20
+    top: int = 40
 
     def __post_init__(self):
         if len(self.weights) != 4 or any(not math.isfinite(x) or x < 0 for x in self.weights):

@@ -89,7 +89,7 @@ def test_missing_provider_ticker_fails(market):
 
 def test_top20_and_empty_are_valid(market):
     _, top, stats = score(market, ScreenConfig(rs20_min=0, rs5_min=0))
-    assert len(top) == 20 and stats["matched"] == 100
+    assert len(top) == 40 and stats["matched"] == 100
     _, top, stats = score(market, ScreenConfig(turnover_min=1e20))
     assert top.empty and stats["matched"] == 0
 
@@ -114,7 +114,7 @@ def test_pipeline_exports_and_records_effective_date(market, tmp_path, capsys):
             return market
     result = run(FixtureProvider(), market.as_of, ScreenConfig(), tmp_path)
     assert result["statistics"]["displayed"] == 11
-    output = pd.read_csv(tmp_path / f"top20-{market.as_of}.csv", dtype={"ticker": str})
+    output = pd.read_csv(tmp_path / f"top40-{market.as_of}.csv", dtype={"ticker": str})
     assert output.iloc[0].ticker == "000100"
     assert "TEST-99" in capsys.readouterr().out
 

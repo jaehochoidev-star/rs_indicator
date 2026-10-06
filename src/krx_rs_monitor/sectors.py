@@ -21,7 +21,7 @@ def enrich(source: Path, output: Path, provider=None):
     stamp = date.fromisoformat(meta['as_of'])
     tables = {}
     fields = {}
-    for prefix in ('ranked', 'top20'):
+    for prefix in ('ranked', f"top{meta['settings']['top']}"):
         with (source / f'{prefix}-{stamp}.csv').open(encoding='utf-8-sig', newline='') as f:
             reader = csv.DictReader(f)
             fields[prefix] = list(reader.fieldnames)

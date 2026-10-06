@@ -28,7 +28,7 @@ def run(provider: MarketDataProvider, requested: date, config: ScreenConfig, out
     ranked, top, stats = score(data, config)
     output.mkdir(parents=True, exist_ok=True)
     stamp = data.as_of.isoformat()
-    for name, frame in (("ranked", ranked), ("top20", top)):
+    for name, frame in (("ranked", ranked), (f"top{config.top}", top)):
         path = output / f"{name}-{stamp}.csv"
         temporary = path.with_suffix(".tmp")
         frame.to_csv(temporary, index=False, encoding="utf-8-sig", float_format="%.8f")
@@ -60,14 +60,14 @@ def run(provider: MarketDataProvider, requested: date, config: ScreenConfig, out
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="KOSPI + KOSDAQ RS TOP20 monitor")
+    parser = argparse.ArgumentParser(description="KOSPI + KOSDAQ RS TOP40 monitor")
     parser.add_argument("--date", help="YYYY-MM-DD; weekend/holiday uses the preceding session")
     parser.add_argument("--weights", nargs=4, type=float, default=(10, 30, 40, 20), metavar=("RS1", "RS5", "RS20", "RS60"))
     parser.add_argument("--avg-turnover", type=float, default=5_000_000_000, help="KRW")
     parser.add_argument("--today-turnover", type=float, default=10_000_000_000, help="KRW")
     parser.add_argument("--rs20-min", type=float, default=90)
     parser.add_argument("--rs5-min", type=float, default=90)
-    parser.add_argument("--top", type=int, default=20)
+    parser.add_argument("--top", type=int, default=40)
     parser.add_argument("--cache-dir", type=Path, default=Path("data/cache"))
     parser.add_argument("--output-dir", type=Path, default=Path("output"))
     parser.add_argument("--refresh", action="store_true")

@@ -37,18 +37,18 @@ pykrx의 KRX 조회에 인증이 필요한 경우 실행 프로세스에 `KRX_ID
 - `RS Score = RS1×0.10 + RS5×0.30 + RS20×0.40 + RS60×0.20`.
 - **전체 유효 종목의 백분위를 먼저 계산**한 다음 20거래일 평균 거래대금 ≥ 50억원, 당일 거래대금 ≥ 100억원, RS20 ≥ 90, RS5 ≥ 90을 모두 적용합니다.
 - 평균 거래대금은 기준일 포함 20거래일의 실제 거래대금(원)이며 종가×거래량으로 추정하지 않습니다. 거래정지일의 실제 거래대금 0도 평균에 포함합니다.
-- RS Score → RS20 → RS5 → 당일 거래대금 내림차순, 마지막 동점은 종목코드 오름차순으로 TOP20을 출력합니다. 조건 충족 종목이 20개 미만이면 해당 개수만 출력합니다.
+- RS Score → RS20 → RS5 → 당일 거래대금 내림차순, 마지막 동점은 종목코드 오름차순으로 TOP40을 출력합니다. 조건 충족 종목이 40개 미만이면 해당 개수만 출력합니다.
 - 수집 실패·빈 응답·한 시장 누락·유효 종목의 거래대금 결측은 성공으로 처리하지 않으며 종료 코드 2를 반환합니다. 정상적으로 조건 충족 종목이 없는 경우는 종료 코드 0입니다.
 
 ## 옵션과 결과
 
 ```powershell
-.\.venv\Scripts\python.exe -m krx_rs_monitor --weights 10 30 40 20 --top 20
+.\.venv\Scripts\python.exe -m krx_rs_monitor --weights 10 30 40 20 --top 40
 ```
 
 `--avg-turnover`, `--today-turnover`는 원 단위이며 `--rs20-min`, `--rs5-min`, `--date`, `--cache-dir`, `--output-dir`, `--timeout`, `--refresh`도 지원합니다.
 
-- `output/top20-YYYY-MM-DD.csv`: 조건 충족 TOP20 (UTF-8 BOM)
+- `output/top40-YYYY-MM-DD.csv`: 조건 충족 TOP40 (UTF-8 BOM)
 - `output/ranked-YYYY-MM-DD.csv`: 전체 유효 종목의 수익률·RS·필터 통과 여부
 - `output/run-YYYY-MM-DD.json`: 실제 기준일·생성 시각·설정·모집단·제외 수·통과 수
 
@@ -76,10 +76,12 @@ KRX 공식 Open API로 전환할 때 `MarketDataProvider.collect(requested)`를 
 - 휴장일에는 종목별 수집과 재배포를 건너뜁니다. 조회 실패 시 작업이 실패로 표시되고 기존 페이지는 유지됩니다. 화면의 기준일과 갱신 시각, Actions 상태를 확인하세요.
 - 수동 실행: Actions → **RS Monitor & GitHub Pages** → Run workflow. `date`를 비워두면 최신 완료 날짜, 지정하면 해당 과거 날짜의 결과로 페이지를 갱신합니다.
 - 소스 push는 테스트 후 `docs/`의 현재 페이지를 배포하며 전체 데이터를 재수집하지 않습니다.
-- 페이지에는 TOP20, 각 기간 RS, 거래대금, 시장·종목 검색, CSV 다운로드가 포함됩니다. 순위 CSV와 요약 통계만 공개하고 원시 캐시·계정 정보는 게시하지 않습니다.
+- 페이지에는 TOP40, 각 기간 RS, 거래대금, 시장·종목 검색, CSV 다운로드가 포함됩니다. 순위 CSV와 요약 통계만 공개하고 원시 캐시·계정 정보는 게시하지 않습니다.
 - 생성: `.\.venv\Scripts\python.exe -m krx_rs_monitor.dashboard`. 완료된 `output/run-날짜.json`과 CSV가 있어야 하며, 불완전한 결과는 게시하지 않습니다.
 - Pages 설정은 GitHub Actions 방식입니다. Workflow는 `contents: write`(결과 보관), `pages: write`, `id-token: write`(배포)를 사용합니다.
 
 남은 확장: 52주 신고가 거리, 최근 7거래일 RS 그래프, Telegram Bot.
 
 종목명 앞에 기준일의 KRX 업종 분류를 표시합니다. 업종명으로 검색할 수 있으며 CSV에도 sector 열이 포함됩니다. 조회되지 않은 업종은 미분류로 표시합니다. 기존 게시 결과에는 업종만 보강하며 RS 점수와 순서는 변경하지 않습니다.
+
+표는 처음 20개를 표시하고, 하단의 '40개 보기'로 최대 40개까지 펼칠 수 있습니다. 검색과 시장 필터는 접힌 종목을 포함한 전체 40개에 적용됩니다. TOP40 CSV는 40개 전체를 제공합니다.
