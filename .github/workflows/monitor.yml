@@ -1,0 +1,145 @@
+name: RS Monitor & GitHub Pages
+
+on:
+  schedule:
+    - cron: '0 12 * * 1-5' # 21:00 Asia/Seoul, weekdays (UTC+9, no DST)
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Optional historical date (YYYY-MM-DD); empty = latest completed date'
+        required: false
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - '.github/workflows/monitor.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rs-monitor-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    outputs:
+      publish: ${{ steps.ready.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+      - name: Validate
+        run: python -m pytest -q
+      - name: Select cache date
+        if: github.event_name != 'push'
+        id: date
+        env:
+          REQUESTED_DATE: ${{ inputs.date }}
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import datetime, date
+          from zoneinfo import ZoneInfo
+          value = os.environ.get('REQUESTED_DATE') or datetime.now(ZoneInfo('Asia/Seoul')).date().isoformat()
+          date.fromisoformat(value)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('date=' + value + '\n')
+          PY
+      - uses: actions/cache/restore@v4
+        if: github.event_name != 'push'
+        with:
+          path: data/cache
+          key: krx-v1-${{ runner.os }}-${{ steps.date.outputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            krx-v1-${{ runner.os }}-${{ steps.date.outputs.date }}-
+      - name: Collect and rank
+        if: github.event_name != 'push'
+        env:
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
+          REQUESTED_DATE: ${{ inputs.date }}
+          SCHEDULED: ${{ github.event_name == 'schedule' }}
+          PYTHONUNBUFFERED: '1'
+        run: |
+          args=()
+          if [[ -n "$REQUESTED_DATE" ]]; then args+=(--date "$REQUESTED_DATE"); fi
+          if [[ "$SCHEDULED" == "true" ]]; then args+=(--skip-nontrading); fi
+          python -m krx_rs_monitor "${args[@]}"
+      - name: Save resumable cache
+        uses: actions/cache/save@v4
+        if: always() && github.event_name != 'push' && steps.date.outputs.date != ''
+        with:
+          path: data/cache
+          key: krx-v1-${{ runner.os }}-${{ steps.date.outputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Build dashboard
+        id: ready
+        run: |
+          if compgen -G 'output/run-*.json' > /dev/null; then
+            python -m krx_rs_monitor.dashboard
+            echo 'publish=true' >> "$GITHUB_OUTPUT"
+          elif [[ '${{ github.event_name }}' == 'push' ]]; then
+            test -f docs/index.html
+            echo 'publish=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'No new trading session. Keeping the published page.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'publish=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Keep latest dashboard in repository
+        if: steps.ready.outputs.publish == 'true' && github.event_name != 'push'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update daily RS dashboard'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+      - name: Upload Pages
+        if: steps.ready.outputs.publish == 'true'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs
+      - name: Run summary
+        if: steps.ready.outputs.publish == 'true'
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p = Path('docs/latest.json')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              if p.exists():
+                  m = json.loads(p.read_text())
+                  f.write(f"Data date: {m['as_of']}\n\nStatistics: {m['statistics']}\n")
+              else:
+                  f.write('Dashboard published; first market collection is pending.\n')
+          PY
+  deploy:
+    if: needs.build.outputs.publish == 'true'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
