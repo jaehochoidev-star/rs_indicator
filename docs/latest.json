@@ -1,9 +1,9 @@
 {
   "status": "success",
   "provider": "PykrxProvider",
-  "requested_date": "2026-10-06",
-  "as_of": "2026-10-06",
-  "generated_at": "2026-10-07T00:54:06.355109+09:00",
+  "requested_date": "2026-10-07",
+  "as_of": "2026-10-07",
+  "generated_at": "2026-10-08T03:58:18.039024+09:00",
   "settings": {
     "weights": [
       10,
@@ -18,17 +18,14 @@
     "top": 40
   },
   "statistics": {
-    "universe": 2766,
-    "eligible": 2745,
+    "universe": 2765,
+    "eligible": 2744,
     "excluded_short_or_invalid_history": 21,
-    "matched": 81,
+    "matched": 43,
     "displayed": 40
   },
   "percentile": "average rank / eligible combined universe size * 100",
   "price_basis": "adjusted closes",
   "turnover_currency": "KRW",
-  "average_includes_as_of": true,
-  "sector_source": "KRX industry classification",
-  "sector_as_of": "2026-10-06",
-  "sector_enriched_at": "2026-10-07T06:50:24.370135+09:00"
+  "average_includes_as_of": true
 }
