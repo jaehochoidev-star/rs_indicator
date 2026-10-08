@@ -1,9 +1,9 @@
 {
   "status": "success",
   "provider": "PykrxProvider",
-  "requested_date": "2026-10-07",
-  "as_of": "2026-10-07",
-  "generated_at": "2026-10-08T03:58:18.039024+09:00",
+  "requested_date": "2026-10-08",
+  "as_of": "2026-10-08",
+  "generated_at": "2026-10-09T04:01:08.590629+09:00",
   "settings": {
     "weights": [
       10,
@@ -21,7 +21,7 @@
     "universe": 2765,
     "eligible": 2744,
     "excluded_short_or_invalid_history": 21,
-    "matched": 43,
+    "matched": 51,
     "displayed": 40
   },
   "percentile": "average rank / eligible combined universe size * 100",
