@@ -1,9 +1,9 @@
 {
   "status": "success",
   "provider": "PykrxProvider",
-  "requested_date": "2026-10-12",
-  "as_of": "2026-10-12",
-  "generated_at": "2026-10-13T06:27:43.229633+09:00",
+  "requested_date": "2026-10-13",
+  "as_of": "2026-10-13",
+  "generated_at": "2026-10-14T04:32:57.135713+09:00",
   "settings": {
     "weights": [
       10,
@@ -18,11 +18,11 @@
     "top": 40
   },
   "statistics": {
-    "universe": 2762,
+    "universe": 2761,
     "eligible": 2741,
-    "excluded_short_or_invalid_history": 21,
-    "matched": 37,
-    "displayed": 37
+    "excluded_short_or_invalid_history": 20,
+    "matched": 34,
+    "displayed": 34
   },
   "percentile": "average rank / eligible combined universe size * 100",
   "price_basis": "adjusted closes",
