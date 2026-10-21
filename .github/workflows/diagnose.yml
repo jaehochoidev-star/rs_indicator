@@ -1,0 +1,38 @@
+name: Diagnose cached market data
+on:
+  workflow_dispatch:
+    inputs:
+      cache_date:
+        description: 'Date in Actions cache key (YYYY-MM-DD)'
+        required: true
+        type: string
+      data_date:
+        description: 'Requested data date (YYYY-MM-DD)'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e .
+      - uses: actions/cache/restore@v4
+        with:
+          path: data/cache
+          key: krx-v1-${{ runner.os }}-${{ inputs.cache_date }}-diagnose
+          restore-keys: |
+            krx-v1-${{ runner.os }}-${{ inputs.cache_date }}-
+      - name: Diagnose
+        env:
+          DATA_DATE: ${{ inputs.data_date }}
+        run: python -m krx_rs_monitor.diagnostics --date "$DATA_DATE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: turnover-diagnostics
+          path: output/turnover-diagnostics.csv
