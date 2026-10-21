@@ -9,6 +9,10 @@ on:
         description: 'Optional historical date (YYYY-MM-DD); empty = latest completed date'
         required: false
         type: string
+      cache_date:
+        description: 'Optional legacy cache date to resume a failed collection (YYYY-MM-DD)'
+        required: false
+        type: string
   push:
     branches: [main]
     paths:
@@ -50,15 +54,19 @@ jobs:
         id: date
         env:
           REQUESTED_DATE: ${{ inputs.date }}
+          CACHE_DATE: ${{ inputs.cache_date }}
         run: |
           python - <<'PY'
           import os
           from datetime import datetime, date
           from zoneinfo import ZoneInfo
-          value = os.environ.get('REQUESTED_DATE') or datetime.now(ZoneInfo('Asia/Seoul')).date().isoformat()
-          date.fromisoformat(value)
+          from krx_rs_monitor.cli import resolve_date
+          value = resolve_date(os.environ.get('REQUESTED_DATE'), datetime.now(ZoneInfo('Asia/Seoul'))).isoformat()
+          cache_date = os.environ.get('CACHE_DATE') or value
+          date.fromisoformat(cache_date)
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write('date=' + value + '\n')
+              f.write('cache_date=' + cache_date + '\n')
           PY
       - uses: actions/cache/restore@v4
         if: github.event_name != 'push'
@@ -66,13 +74,13 @@ jobs:
           path: data/cache
           key: krx-v1-${{ runner.os }}-${{ steps.date.outputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            krx-v1-${{ runner.os }}-${{ steps.date.outputs.date }}-
+            krx-v1-${{ runner.os }}-${{ steps.date.outputs.cache_date }}-
       - name: Collect and rank
         if: github.event_name != 'push'
         env:
           KRX_ID: ${{ secrets.KRX_ID }}
           KRX_PW: ${{ secrets.KRX_PW }}
-          REQUESTED_DATE: ${{ inputs.date }}
+          REQUESTED_DATE: ${{ steps.date.outputs.date }}
           SCHEDULED: ${{ github.event_name == 'schedule' }}
           PYTHONUNBUFFERED: '1'
         run: |

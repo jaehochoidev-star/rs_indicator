@@ -6,6 +6,7 @@ import io
 import time
 from unittest.mock import patch
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -170,12 +171,31 @@ class PykrxProvider:
             combined = pd.concat(daily)
             if combined.index.has_duplicates:
                 raise DataError(f"Duplicate turnover tickers on {day}.")
+            # Transfers retain adjusted price history from their previous market.
+            # Only supplement absent current-universe tickers, never add KONEX
+            # listings to the screening universe or overwrite reported values.
+            missing = universe.index.difference(combined.index)
+            if len(missing):
+                prior = self._frame(
+                    f"{anchor}/turnover-{day}-KONEX",
+                    lambda d=day: self.stock.get_market_ohlcv_by_ticker(d, market="KONEX"),
+                    ["거래대금"],
+                )
+                prior.index = prior.index.astype(str).str.zfill(6)
+                found = missing.intersection(prior.index)
+                if len(found):
+                    combined = pd.concat([combined, prior.loc[found, "거래대금"]])
+                    self.progress(f"Historical KONEX turnover: {day}: {', '.join(found)}")
             values.append(combined.rename(session))
             self.progress(f"Daily turnover: {day}")
         turnover = pd.DataFrame(values).reindex(columns=universe.index)
 
         histories = {}
-        for number, ticker in enumerate(universe.index, 1):
+        invalid = ~np.isfinite(turnover) | (turnover < 0)
+        suspect = invalid.columns[invalid.any()].tolist()
+        # Check suspect histories first so an unresolved data gap fails early.
+        order = suspect + [t for t in universe.index if t not in suspect]
+        for number, ticker in enumerate(order, 1):
             frame = self._frame(
                 f"{anchor}/adjusted-{first}-{ticker}",
                 lambda t=ticker: self.stock.get_market_ohlcv_by_date(first, anchor, t, adjusted=True),
@@ -183,6 +203,14 @@ class PykrxProvider:
             )
             frame.index = pd.DatetimeIndex(frame.index).normalize()
             histories[ticker] = frame["종가"].reindex(sessions)
+            prices = histories[ticker]
+            if ticker in suspect and (np.isfinite(prices) & (prices > 0)).all():
+                dates = turnover.index[invalid[ticker]].strftime("%Y-%m-%d")
+                raise DataError(
+                    f"Missing, negative or invalid turnover data: {ticker} "
+                    f"({universe.loc[ticker, 'name']}), dates: {', '.join(dates)}. "
+                    "Stopped before collecting remaining histories; cached data is reusable."
+                )
             if number == 1 or number % 50 == 0 or number == len(universe):
                 self.progress(f"Adjusted histories: {number}/{len(universe)}")
         return MarketData(as_of, sessions, universe, pd.DataFrame(histories), turnover)
