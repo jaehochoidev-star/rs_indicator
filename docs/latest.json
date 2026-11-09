@@ -28,5 +28,12 @@
   "price_basis": "adjusted closes",
   "turnover_currency": "KRW",
   "average_includes_as_of": true,
-  "turnover_displayed": 40
+  "turnover_displayed": 40,
+  "turnover_sessions": [
+    "2026-11-02",
+    "2026-11-03",
+    "2026-11-04",
+    "2026-11-05",
+    "2026-11-06"
+  ]
 }
