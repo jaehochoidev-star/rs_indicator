@@ -27,7 +27,7 @@ def resolve_date(explicit: str | None, now: datetime) -> date:
 def run(provider: MarketDataProvider, requested: date, config: ScreenConfig, output: Path):
     data = provider.collect(requested)
     ranked, top, stats = score(data, config)
-    turnover_top = leaders(data.universe, data.turnover.loc[data.sessions[-1]])
+    turnover_top = leaders(data.universe, data.turnover.loc[data.sessions[-1]], history=data.turnover.tail(5))
     output.mkdir(parents=True, exist_ok=True)
     stamp = data.as_of.isoformat()
     write_leaders(turnover_top, output, stamp)
@@ -38,6 +38,7 @@ def run(provider: MarketDataProvider, requested: date, config: ScreenConfig, out
         temporary.replace(path)
     metadata = {
         "turnover_displayed": len(turnover_top),
+        "turnover_sessions": [s.date().isoformat() for s in data.turnover.index[-5:]],
         "status": "success", "provider": type(provider).__name__,
         "requested_date": requested.isoformat(), "as_of": stamp,
         "generated_at": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(),

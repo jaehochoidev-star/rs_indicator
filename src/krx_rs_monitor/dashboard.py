@@ -67,12 +67,40 @@ def render(source: Path, destination: Path, *, allow_empty=False):
     downloads = '<span class="muted">CSV는 첫 수집 후 제공됩니다</span>'
     if meta:
         downloads = f'<a class="button" href="top{settings["top"]}-{as_of}.csv" download>TOP {settings["top"]} CSV ↓</a><a href="ranked-{as_of}.csv" download>전체 순위 CSV ↓</a>'
+    turnover_sessions = meta.get('turnover_sessions', []) if meta else []
+    if turnover_sessions:
+        if len(turnover_sessions) != 5 or sorted(set(turnover_sessions)) != turnover_sessions or turnover_sessions[-1] != as_of:
+            raise ValueError("Invalid turnover session dates.")
+        for session in turnover_sessions:
+            datetime.strptime(session, '%Y-%m-%d')
+    turnover_headers = ''.join(f'<th class="num">{e(day[5:].replace("-", "/"))}{" · 기준일" if day == as_of else ""}</th>' for day in turnover_sessions)
+    turnover_headers = turnover_headers + '<th class="num">전일 대비</th>' if turnover_sessions else '<th class="num">당일 거래대금 · 억원</th>'
     turnover_body = []
     for number, row in enumerate(turnover_rows, 1):
+        history_cells = ''
+        if turnover_sessions:
+            amounts = []
+            for day in turnover_sessions:
+                value = row[f'turnover_{day}']
+                amount = float(value) if value else None
+                if amount is not None and (not math.isfinite(amount) or amount < 0):
+                    raise ValueError('Invalid turnover history amount.')
+                amounts.append(amount)
+                label = f'{amount/1e8:,.1f}' if amount is not None else '—'
+                history_cells += f'<td class="num">{label}</td>'
+            if amounts[-1] != float(row['turnover_today']):
+                raise ValueError('Turnover history does not match current session.')
+            previous, current = amounts[-2:]
+            change = (current / previous - 1) * 100 if previous is not None and previous > 0 else None
+            label = f'{change:+.1f}%' if change is not None else '—'
+            color = '#ad3737' if change is not None and change > 0 else '#2866a0' if change is not None and change < 0 else 'var(--muted)'
+            history_cells += f'<td class="num" style="color:{color}">{label}</td>'
+        else:
+            history_cells = f'<td class="num">{float(row["turnover_today"])/1e8:,.1f}</td>'
         turnover_body.append(f"""<tr data-market="{e(row['market'])}"><td class="rank">{number:02}</td>
 <td><span class="sector">{e(row.get('sector') or '미분류')}</span> <b>{e(row['name'])}</b><span class="ticker">{e(row['ticker'])}</span></td>
-<td><span class="market">{e(row['market'])}</span></td><td class="num">{float(row['turnover_today'])/1e8:,.1f}</td></tr>""")
-    turnover_table = ''.join(turnover_body) or '<tr><td colspan="4" class="empty">거래대금 순위 수집 대기 중입니다.</td></tr>'
+<td><span class="market">{e(row['market'])}</span></td>{history_cells}</tr>""")
+    turnover_table = ''.join(turnover_body) or '<tr><td colspan="9" class="empty">거래대금 순위 수집 대기 중입니다.</td></tr>'
     turnover_download = f'<a href="turnover40-{as_of}.csv" download>거래대금 TOP 40 CSV ↓</a>' if turnover_rows else ''
     weights = settings['weights']
     total = sum(weights)
@@ -92,8 +120,8 @@ def render(source: Path, destination: Path, *, allow_empty=False):
 <section class="panel"><div class="toolbar"><h2>상대강도 순위</h2><label><span class="hidden">시장</span><select id="market" aria-label="시장 선택"><option value="">전체 시장</option><option>KOSPI</option><option>KOSDAQ</option></select></label><input id="search" type="search" placeholder="종목명 · 코드 · 업종 검색" aria-label="종목 검색"></div>
 <div class="table-wrap"><table><thead><tr><th>#</th><th>업종 · 종목</th><th>시장</th><th>RS Score</th><th class="num">RS1</th><th class="num">RS5</th><th class="num">RS20</th><th class="num">RS60</th><th class="num">20일 평균 · 억원</th><th class="num">당일 · 억원</th></tr></thead><tbody id="ranked-rows">{table}</tbody></table><p id="no-match" class="empty hidden">검색 조건에 맞는 종목이 없습니다.</p></div><div class="table-controls"><span id="row-count">{min(20,len(rows))} / {len(rows)}개 표시</span><button type="button" id="show-more" class="show-more" aria-expanded="false" aria-controls="ranked-rows"{' hidden' if len(rows) <= 20 else ''}>{len(rows)}개 보기</button></div><div class="downloads">{downloads}</div></section>
 <section class="panel" style="margin-top:28px" aria-label="당일 거래대금 상위 종목"><div class="toolbar"><h2>당일 거래대금 TOP 40</h2><select id="turnover-market" aria-label="거래대금 시장 선택"><option value="">전체 시장</option><option>KOSPI</option><option>KOSDAQ</option></select><input id="turnover-search" type="search" placeholder="종목명 · 코드 · 업종 검색" aria-label="거래대금 종목 검색"></div>
-<p class="muted" style="padding:0 24px;font-size:13px">{e(as_of)} 기준 · KOSPI + KOSDAQ 전체 종목의 당일 거래대금 순위입니다. RS 조건을 적용하지 않으며 신규 상장 종목도 포함합니다. 금액 단위: 억원.</p>
-<div class="table-wrap"><table><thead><tr><th>#</th><th>업종 · 종목</th><th>시장</th><th class="num">당일 거래대금 · 억원</th></tr></thead><tbody id="turnover-rows">{turnover_table}</tbody></table><p id="turnover-no-match" class="empty hidden">검색 조건에 맞는 종목이 없습니다.</p></div><div class="downloads">{turnover_download}</div></section>
+<p class="muted" style="padding:0 24px;font-size:13px">{e(as_of)} 기준 · KOSPI + KOSDAQ 전체 종목의 당일 거래대금 순위입니다. RS 조건을 적용하지 않으며 신규 상장 종목도 포함합니다. 금액 단위: 억원. 최근 5거래일은 왼쪽부터 과거 → 기준일 순서입니다. 전일 대비는 거래대금 증감률이며 주가 등락률이 아닙니다. 자료가 없거나 전일 거래대금이 0원이어서 증감률을 계산할 수 없으면 —로 표시합니다.</p>
+<div class="table-wrap"><table><thead><tr><th>#</th><th>업종 · 종목</th><th>시장</th>{turnover_headers}</tr></thead><tbody id="turnover-rows">{turnover_table}</tbody></table><p id="turnover-no-match" class="empty hidden">검색 조건에 맞는 종목이 없습니다.</p></div><div class="downloads">{turnover_download}</div></section>
 <section class="notes"><div><h3>어떤 종목이 표시되나요?</h3><p>20일 평균 거래대금 ≥ {settings['avg_turnover_min']/1e8:g}억원 · 당일 ≥ {settings['turnover_min']/1e8:g}억원<br>RS20 ≥ {settings['rs20_min']:g} · RS5 ≥ {settings['rs5_min']:g}</p><p>종목명 앞의 업종은 해당 기준일의 KRX 분류이며, 확인되지 않은 업종은 미분류로 표시합니다. 전체 유효 종목의 수익률 백분위를 계산한 뒤 필터를 적용합니다. 평균 거래대금에는 기준일이 포함됩니다. 동점은 평균 순위로 계산합니다.</p></div><div><h3>RS Score 계산</h3><div class="formula">{formula}</div><p>RS1·5·20·60은 각 기간 수정종가 수익률의 백분위입니다. 신규 상장 등 61거래일 데이터가 부족한 종목은 제외합니다. 휴장일에는 직전 결과를 유지하며 수집 실패 시 기존 페이지를 보존합니다.</p></div></section>
 <footer><span>데이터: pykrx (KRX / Naver) · 학습용 스크리너 · 투자 권유가 아닙니다.</span><a href="{REPO}/actions">수집·배포 상태 ↗</a></footer></main>
 <script>
