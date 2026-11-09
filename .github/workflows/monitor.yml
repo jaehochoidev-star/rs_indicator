@@ -100,6 +100,12 @@ jobs:
           KRX_ID: ${{ secrets.KRX_ID }}
           KRX_PW: ${{ secrets.KRX_PW }}
         run: python -m krx_rs_monitor.sectors --source docs --output output
+      - name: Add daily turnover leaders to published results
+        if: github.event_name == 'push'
+        env:
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
+        run: python -m krx_rs_monitor.turnover
       - name: Build dashboard
         id: ready
         run: |

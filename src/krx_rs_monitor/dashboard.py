@@ -4,6 +4,7 @@ import csv
 from datetime import datetime
 from html import escape
 import json
+import math
 from pathlib import Path
 import shutil
 from zoneinfo import ZoneInfo
@@ -17,6 +18,7 @@ def render(source: Path, destination: Path, *, allow_empty=False):
         raise ValueError("No completed run metadata found; preserving the existing dashboard.")
     meta = json.loads(runs[-1].read_text(encoding="utf-8")) if runs else None
     rows = []
+    turnover_rows = []
     if meta:
         if meta.get("status") != "success":
             raise ValueError("Only a successful run can be published.")
@@ -32,6 +34,14 @@ def render(source: Path, destination: Path, *, allow_empty=False):
         # Read and validate all source data before changing the publication folder.
         if not (source / f"ranked-{stamp}.csv").is_file():
             raise ValueError("Full ranking CSV is missing.")
+    if meta and 'turnover_displayed' in meta:
+        with (source / f"turnover40-{stamp}.csv").open(encoding="utf-8-sig", newline="") as handle:
+            turnover_rows = list(csv.DictReader(handle))
+        if len(turnover_rows) != meta['turnover_displayed'] or len(turnover_rows) > 40:
+            raise ValueError("Turnover row count does not match metadata.")
+        amounts = [float(row['turnover_today']) for row in turnover_rows]
+        if any(not math.isfinite(v) or v < 0 for v in amounts) or amounts != sorted(amounts, reverse=True):
+            raise ValueError("Invalid turnover ranking.")
     settings = meta["settings"] if meta else {
         "weights": [10, 30, 40, 20], "avg_turnover_min": 5e9,
         "turnover_min": 1e10, "rs20_min": 90, "rs5_min": 90, "top": 40,
@@ -57,6 +67,13 @@ def render(source: Path, destination: Path, *, allow_empty=False):
     downloads = '<span class="muted">CSV는 첫 수집 후 제공됩니다</span>'
     if meta:
         downloads = f'<a class="button" href="top{settings["top"]}-{as_of}.csv" download>TOP {settings["top"]} CSV ↓</a><a href="ranked-{as_of}.csv" download>전체 순위 CSV ↓</a>'
+    turnover_body = []
+    for number, row in enumerate(turnover_rows, 1):
+        turnover_body.append(f"""<tr data-market="{e(row['market'])}"><td class="rank">{number:02}</td>
+<td><span class="sector">{e(row.get('sector') or '미분류')}</span> <b>{e(row['name'])}</b><span class="ticker">{e(row['ticker'])}</span></td>
+<td><span class="market">{e(row['market'])}</span></td><td class="num">{float(row['turnover_today'])/1e8:,.1f}</td></tr>""")
+    turnover_table = ''.join(turnover_body) or '<tr><td colspan="4" class="empty">거래대금 순위 수집 대기 중입니다.</td></tr>'
+    turnover_download = f'<a href="turnover40-{as_of}.csv" download>거래대금 TOP 40 CSV ↓</a>' if turnover_rows else ''
     weights = settings['weights']
     total = sum(weights)
     formula = " + ".join(f"RS{n} × {w/total:.0%}" for n, w in zip((1,5,20,60), weights))
@@ -74,20 +91,28 @@ def render(source: Path, destination: Path, *, allow_empty=False):
 <section class="stats" aria-label="수집 요약"><div class="stat"><span>전체 종목</span><b>{format(stats['universe'], ',') if 'universe' in stats else '—'}</b><small>KOSPI + KOSDAQ</small></div><div class="stat"><span>계산 대상</span><b>{format(stats['eligible'], ',') if 'eligible' in stats else '—'}</b><small>61거래일 유효 수정종가</small></div><div class="stat"><span>조건 충족</span><b>{format(stats['matched'], ',') if 'matched' in stats else '—'}</b><small>거래대금 · RS 필터 통과</small></div><div class="stat"><span>표시 종목</span><b>{format(stats['displayed'], ',') if 'displayed' in stats else '—'}</b><small>최대 {settings['top']}개 · 처음 20개 표시</small></div></section>
 <section class="panel"><div class="toolbar"><h2>상대강도 순위</h2><label><span class="hidden">시장</span><select id="market" aria-label="시장 선택"><option value="">전체 시장</option><option>KOSPI</option><option>KOSDAQ</option></select></label><input id="search" type="search" placeholder="종목명 · 코드 · 업종 검색" aria-label="종목 검색"></div>
 <div class="table-wrap"><table><thead><tr><th>#</th><th>업종 · 종목</th><th>시장</th><th>RS Score</th><th class="num">RS1</th><th class="num">RS5</th><th class="num">RS20</th><th class="num">RS60</th><th class="num">20일 평균 · 억원</th><th class="num">당일 · 억원</th></tr></thead><tbody id="ranked-rows">{table}</tbody></table><p id="no-match" class="empty hidden">검색 조건에 맞는 종목이 없습니다.</p></div><div class="table-controls"><span id="row-count">{min(20,len(rows))} / {len(rows)}개 표시</span><button type="button" id="show-more" class="show-more" aria-expanded="false" aria-controls="ranked-rows"{' hidden' if len(rows) <= 20 else ''}>{len(rows)}개 보기</button></div><div class="downloads">{downloads}</div></section>
+<section class="panel" style="margin-top:28px" aria-label="당일 거래대금 상위 종목"><div class="toolbar"><h2>당일 거래대금 TOP 40</h2><select id="turnover-market" aria-label="거래대금 시장 선택"><option value="">전체 시장</option><option>KOSPI</option><option>KOSDAQ</option></select><input id="turnover-search" type="search" placeholder="종목명 · 코드 · 업종 검색" aria-label="거래대금 종목 검색"></div>
+<p class="muted" style="padding:0 24px;font-size:13px">{e(as_of)} 기준 · KOSPI + KOSDAQ 전체 종목의 당일 거래대금 순위입니다. RS 조건을 적용하지 않으며 신규 상장 종목도 포함합니다. 금액 단위: 억원.</p>
+<div class="table-wrap"><table><thead><tr><th>#</th><th>업종 · 종목</th><th>시장</th><th class="num">당일 거래대금 · 억원</th></tr></thead><tbody id="turnover-rows">{turnover_table}</tbody></table><p id="turnover-no-match" class="empty hidden">검색 조건에 맞는 종목이 없습니다.</p></div><div class="downloads">{turnover_download}</div></section>
 <section class="notes"><div><h3>어떤 종목이 표시되나요?</h3><p>20일 평균 거래대금 ≥ {settings['avg_turnover_min']/1e8:g}억원 · 당일 ≥ {settings['turnover_min']/1e8:g}억원<br>RS20 ≥ {settings['rs20_min']:g} · RS5 ≥ {settings['rs5_min']:g}</p><p>종목명 앞의 업종은 해당 기준일의 KRX 분류이며, 확인되지 않은 업종은 미분류로 표시합니다. 전체 유효 종목의 수익률 백분위를 계산한 뒤 필터를 적용합니다. 평균 거래대금에는 기준일이 포함됩니다. 동점은 평균 순위로 계산합니다.</p></div><div><h3>RS Score 계산</h3><div class="formula">{formula}</div><p>RS1·5·20·60은 각 기간 수정종가 수익률의 백분위입니다. 신규 상장 등 61거래일 데이터가 부족한 종목은 제외합니다. 휴장일에는 직전 결과를 유지하며 수집 실패 시 기존 페이지를 보존합니다.</p></div></section>
 <footer><span>데이터: pykrx (KRX / Naver) · 학습용 스크리너 · 투자 권유가 아닙니다.</span><a href="{REPO}/actions">수집·배포 상태 ↗</a></footer></main>
 <script>
-const search=document.querySelector('#search'), market=document.querySelector('#market'), rows=[...document.querySelectorAll('tr[data-market]')];
+const search=document.querySelector('#search'), market=document.querySelector('#market'), rows=[...document.querySelectorAll('#ranked-rows tr[data-market]')];
 let expanded=false;const more=document.querySelector('#show-more'),counter=document.querySelector('#row-count');
 function filter(){{const matches=rows.filter(r=>(!market.value||r.dataset.market===market.value)&&r.textContent.toLowerCase().includes(search.value.trim().toLowerCase()));rows.forEach(r=>r.hidden=true);const visible=expanded?matches:matches.slice(0,20);visible.forEach(r=>r.hidden=false);counter.textContent=`${{visible.length}} / ${{matches.length}}개 표시`;more.hidden=matches.length<=20;more.textContent=expanded?'20개만 보기':`${{matches.length}}개 보기`;more.setAttribute('aria-expanded',String(expanded));document.querySelector('#no-match').classList.toggle('hidden',!rows.length||matches.length>0);}}
 more.addEventListener('click',()=>{{expanded=!expanded;filter();}});
 search.addEventListener('input',()=>{{expanded=false;filter();}});market.addEventListener('change',()=>{{expanded=false;filter();}});filter();
+const turnoverSearch=document.querySelector('#turnover-search'),turnoverMarket=document.querySelector('#turnover-market'),turnoverRows=[...document.querySelectorAll('#turnover-rows tr[data-market]')];
+function filterTurnover(){{let count=0;turnoverRows.forEach(r=>{{const show=(!turnoverMarket.value||r.dataset.market===turnoverMarket.value)&&r.textContent.toLowerCase().includes(turnoverSearch.value.trim().toLowerCase());r.hidden=!show;if(show)count++;}});document.querySelector('#turnover-no-match').classList.toggle('hidden',!turnoverRows.length||count>0);}}
+turnoverSearch.addEventListener('input',filterTurnover);turnoverMarket.addEventListener('change',filterTurnover);
 const freshness=document.querySelector('#freshness');if(freshness.dataset.date){{const days=(Date.now()-Date.parse(freshness.dataset.date+'T15:30:00+09:00'))/86400000;if(days>4)freshness.textContent='최근 거래일 또는 수집·배포 상태를 확인하세요.';}}
 </script></body></html>'''
     destination.mkdir(parents=True, exist_ok=True)
     if meta:
         for prefix in (f"top{settings['top']}", "ranked"):
             shutil.copyfile(source / f"{prefix}-{as_of}.csv", destination / f"{prefix}-{as_of}.csv")
+        if 'turnover_displayed' in meta:
+            shutil.copyfile(source / f"turnover40-{as_of}.csv", destination / f"turnover40-{as_of}.csv")
         # Publish only metadata produced by our application, never cache or credentials.
         (destination / "latest.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     (destination / ".nojekyll").touch()

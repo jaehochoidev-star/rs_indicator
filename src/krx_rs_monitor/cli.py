@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 from .models import DataError, MarketDataProvider, NoTradingSession
 from .scoring import ScreenConfig, score
+from .turnover import leaders, write_leaders
 
 
 def resolve_date(explicit: str | None, now: datetime) -> date:
@@ -26,14 +27,17 @@ def resolve_date(explicit: str | None, now: datetime) -> date:
 def run(provider: MarketDataProvider, requested: date, config: ScreenConfig, output: Path):
     data = provider.collect(requested)
     ranked, top, stats = score(data, config)
+    turnover_top = leaders(data.universe, data.turnover.loc[data.sessions[-1]])
     output.mkdir(parents=True, exist_ok=True)
     stamp = data.as_of.isoformat()
+    write_leaders(turnover_top, output, stamp)
     for name, frame in (("ranked", ranked), (f"top{config.top}", top)):
         path = output / f"{name}-{stamp}.csv"
         temporary = path.with_suffix(".tmp")
         frame.to_csv(temporary, index=False, encoding="utf-8-sig", float_format="%.8f")
         temporary.replace(path)
     metadata = {
+        "turnover_displayed": len(turnover_top),
         "status": "success", "provider": type(provider).__name__,
         "requested_date": requested.isoformat(), "as_of": stamp,
         "generated_at": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(),
