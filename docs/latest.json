@@ -27,5 +27,6 @@
   "percentile": "average rank / eligible combined universe size * 100",
   "price_basis": "adjusted closes",
   "turnover_currency": "KRW",
-  "average_includes_as_of": true
+  "average_includes_as_of": true,
+  "turnover_displayed": 40
 }
