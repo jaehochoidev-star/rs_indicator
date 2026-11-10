@@ -1,17 +1,17 @@
 {
   "turnover_displayed": 40,
   "turnover_sessions": [
-    "2026-11-03",
     "2026-11-04",
     "2026-11-05",
     "2026-11-06",
-    "2026-11-09"
+    "2026-11-09",
+    "2026-11-10"
   ],
   "status": "success",
   "provider": "PykrxProvider",
-  "requested_date": "2026-11-09",
-  "as_of": "2026-11-09",
-  "generated_at": "2026-11-10T07:35:47.851987+09:00",
+  "requested_date": "2026-11-10",
+  "as_of": "2026-11-10",
+  "generated_at": "2026-11-11T04:55:01.520763+09:00",
   "settings": {
     "weights": [
       10,
@@ -26,11 +26,11 @@
     "top": 40
   },
   "statistics": {
-    "universe": 2769,
-    "eligible": 2738,
-    "excluded_short_or_invalid_history": 31,
-    "matched": 26,
-    "displayed": 26
+    "universe": 2768,
+    "eligible": 2736,
+    "excluded_short_or_invalid_history": 32,
+    "matched": 32,
+    "displayed": 32
   },
   "percentile": "average rank / eligible combined universe size * 100",
   "price_basis": "adjusted closes",
