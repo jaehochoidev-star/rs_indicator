@@ -35,5 +35,12 @@
   "percentile": "average rank / eligible combined universe size * 100",
   "price_basis": "adjusted closes",
   "turnover_currency": "KRW",
-  "average_includes_as_of": true
+  "average_includes_as_of": true,
+  "activity": {
+    "limit_up": 9,
+    "volume10m": 7,
+    "volume_threshold": 10000000,
+    "limit_up_rule": "ordinary 30% closing limit, listing-day exclusions",
+    "listing_day_excluded": 0
+  }
 }
