@@ -106,6 +106,11 @@ jobs:
           KRX_ID: ${{ secrets.KRX_ID }}
           KRX_PW: ${{ secrets.KRX_PW }}
         run: python -m krx_rs_monitor.turnover
+      - name: Build daily limit-up and high-volume lists
+        env:
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
+        run: python -m krx_rs_monitor.activity
       - name: Build dashboard
         id: ready
         run: |

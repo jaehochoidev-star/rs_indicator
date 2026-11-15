@@ -42,6 +42,23 @@ def render(source: Path, destination: Path, *, allow_empty=False):
         amounts = [float(row['turnover_today']) for row in turnover_rows]
         if any(not math.isfinite(v) or v < 0 for v in amounts) or amounts != sorted(amounts, reverse=True):
             raise ValueError("Invalid turnover ranking.")
+    activity_tables = {}
+    if meta and 'activity' in meta:
+        for prefix, key in (('limit-up', 'limit_up'), ('volume10m', 'volume10m')):
+            with (source / f'{prefix}-{stamp}.csv').open(encoding='utf-8-sig', newline='') as handle:
+                activity_rows = list(csv.DictReader(handle))
+            if len(activity_rows) != meta['activity'][key]:
+                raise ValueError('Activity row count does not match metadata.')
+            for row in activity_rows:
+                for field in ('volume', 'turnover_today', 'close', 'base_price', 'upper_limit', 'change_pct'):
+                    value = float(row[field])
+                    if not math.isfinite(value) or (field != 'change_pct' and value < 0):
+                        raise ValueError('Invalid market activity value.')
+                if prefix == 'volume10m' and float(row['volume']) < 10_000_000:
+                    raise ValueError('Volume threshold not met.')
+                if prefix == 'limit-up' and (row['limit_up'] != 'True' or float(row['close']) != float(row['upper_limit'])):
+                    raise ValueError('Limit-up classification not met.')
+            activity_tables[prefix] = activity_rows
     settings = meta["settings"] if meta else {
         "weights": [10, 30, 40, 20], "avg_turnover_min": 5e9,
         "turnover_min": 1e10, "rs20_min": 90, "rs5_min": 90, "top": 40,
@@ -102,6 +119,26 @@ def render(source: Path, destination: Path, *, allow_empty=False):
 <td><span class="market">{e(row['market'])}</span></td>{history_cells}</tr>""")
     turnover_table = ''.join(turnover_body) or '<tr><td colspan="9" class="empty">거래대금 순위 수집 대기 중입니다.</td></tr>'
     turnover_download = f'<a href="turnover40-{as_of}.csv" download>거래대금 TOP 40 CSV ↓</a>' if turnover_rows else ''
+    activity_panels = []
+    for prefix, title, description in (
+        ('limit-up', '상한가 마감 종목', '종가가 일반 가격제한폭(30%) 상한가에 도달한 종목 · 호가단위 반영 · 거래대금순. 장중 도달 후 하락한 종목과 신규상장 첫날은 제외합니다.'),
+        ('volume10m', '거래량 1,000만 주 이상', '당일 거래량 10,000,000주 이상인 모든 종목 · 거래량순. RS 조건을 적용하지 않습니다.'),
+    ):
+        activity_rows = activity_tables.get(prefix, [])
+        rendered = []
+        for number, row in enumerate(activity_rows, 1):
+            rendered.append(f"""<tr data-market="{e(row['market'])}"><td class="rank">{number:02}</td>
+<td><span class="sector">{e(row.get('sector') or '미분류')}</span> <b>{e(row['name'])}</b><span class="ticker">{e(row['ticker'])}</span></td>
+<td><span class="market">{e(row['market'])}</span></td><td class="num">{float(row['change_pct']):+.2f}%</td><td class="num">{float(row['volume']):,.0f}</td><td class="num">{float(row['turnover_today'])/1e8:,.1f}</td></tr>""")
+        pending = prefix not in activity_tables
+        empty_label = '첫 수집 대기 중입니다.' if pending else '해당 기준일에 조건을 충족한 종목이 없습니다.'
+        content = ''.join(rendered) or f'<tr><td colspan="6" class="empty">{empty_label}</td></tr>'
+        download = '' if pending else f'<a href="{prefix}-{as_of}.csv" download>목록 CSV ↓</a>'
+        activity_panels.append(f"""<section class="panel" style="margin-top:28px" aria-label="{title}">
+<div class="toolbar"><h2>{title} <span class="muted">({len(activity_rows)}개)</span></h2><select id="{prefix}-market" aria-label="{title} 시장 선택"><option value="">전체 시장</option><option>KOSPI</option><option>KOSDAQ</option></select><input id="{prefix}-search" type="search" placeholder="종목명 · 코드 · 업종 검색" aria-label="{title} 검색"></div>
+<p class="muted" style="padding:0 24px;font-size:13px">{e(as_of)} 기준 · {description}</p>
+<div class="table-wrap"><table><thead><tr><th>#</th><th>업종 · 종목</th><th>시장</th><th class="num">등락률</th><th class="num">거래량 · 주</th><th class="num">거래대금 · 억원</th></tr></thead><tbody id="{prefix}-rows">{content}</tbody></table><p id="{prefix}-no-match" class="empty hidden">검색 조건에 맞는 종목이 없습니다.</p></div><div class="downloads">{download}</div></section>""")
+    activity_html = ''.join(activity_panels)
     weights = settings['weights']
     total = sum(weights)
     formula = " + ".join(f"RS{n} × {w/total:.0%}" for n, w in zip((1,5,20,60), weights))
@@ -122,6 +159,7 @@ def render(source: Path, destination: Path, *, allow_empty=False):
 <section class="panel" style="margin-top:28px" aria-label="당일 거래대금 상위 종목"><div class="toolbar"><h2>당일 거래대금 TOP 40</h2><select id="turnover-market" aria-label="거래대금 시장 선택"><option value="">전체 시장</option><option>KOSPI</option><option>KOSDAQ</option></select><input id="turnover-search" type="search" placeholder="종목명 · 코드 · 업종 검색" aria-label="거래대금 종목 검색"></div>
 <p class="muted" style="padding:0 24px;font-size:13px">{e(as_of)} 기준 · KOSPI + KOSDAQ 전체 종목의 당일 거래대금 순위입니다. RS 조건을 적용하지 않으며 신규 상장 종목도 포함합니다. 금액 단위: 억원. 최근 5거래일은 왼쪽부터 과거 → 기준일 순서입니다. 전일 대비는 거래대금 증감률이며 주가 등락률이 아닙니다. 자료가 없거나 전일 거래대금이 0원이어서 증감률을 계산할 수 없으면 —로 표시합니다.</p>
 <div class="table-wrap"><table><thead><tr><th>#</th><th>업종 · 종목</th><th>시장</th>{turnover_headers}</tr></thead><tbody id="turnover-rows">{turnover_table}</tbody></table><p id="turnover-no-match" class="empty hidden">검색 조건에 맞는 종목이 없습니다.</p></div><div class="downloads">{turnover_download}</div></section>
+{activity_html}
 <section class="notes"><div><h3>어떤 종목이 표시되나요?</h3><p>20일 평균 거래대금 ≥ {settings['avg_turnover_min']/1e8:g}억원 · 당일 ≥ {settings['turnover_min']/1e8:g}억원<br>RS20 ≥ {settings['rs20_min']:g} · RS5 ≥ {settings['rs5_min']:g}</p><p>종목명 앞의 업종은 해당 기준일의 KRX 분류이며, 확인되지 않은 업종은 미분류로 표시합니다. 전체 유효 종목의 수익률 백분위를 계산한 뒤 필터를 적용합니다. 평균 거래대금에는 기준일이 포함됩니다. 동점은 평균 순위로 계산합니다.</p></div><div><h3>RS Score 계산</h3><div class="formula">{formula}</div><p>RS1·5·20·60은 각 기간 수정종가 수익률의 백분위입니다. 신규 상장 등 61거래일 데이터가 부족한 종목은 제외합니다. 휴장일에는 직전 결과를 유지하며 수집 실패 시 기존 페이지를 보존합니다.</p></div></section>
 <footer><span>데이터: pykrx (KRX / Naver) · 학습용 스크리너 · 투자 권유가 아닙니다.</span><a href="{REPO}/actions">수집·배포 상태 ↗</a></footer></main>
 <script>
@@ -133,6 +171,11 @@ search.addEventListener('input',()=>{{expanded=false;filter();}});market.addEven
 const turnoverSearch=document.querySelector('#turnover-search'),turnoverMarket=document.querySelector('#turnover-market'),turnoverRows=[...document.querySelectorAll('#turnover-rows tr[data-market]')];
 function filterTurnover(){{let count=0;turnoverRows.forEach(r=>{{const show=(!turnoverMarket.value||r.dataset.market===turnoverMarket.value)&&r.textContent.toLowerCase().includes(turnoverSearch.value.trim().toLowerCase());r.hidden=!show;if(show)count++;}});document.querySelector('#turnover-no-match').classList.toggle('hidden',!turnoverRows.length||count>0);}}
 turnoverSearch.addEventListener('input',filterTurnover);turnoverMarket.addEventListener('change',filterTurnover);
+for(const prefix of ['limit-up','volume10m']){{
+const input=document.getElementById(prefix+'-search'),select=document.getElementById(prefix+'-market'),items=[...document.querySelectorAll('#'+prefix+'-rows tr[data-market]')];
+function update(){{let count=0;items.forEach(r=>{{const show=(!select.value||r.dataset.market===select.value)&&r.textContent.toLowerCase().includes(input.value.trim().toLowerCase());r.hidden=!show;if(show)count++;}});document.getElementById(prefix+'-no-match').classList.toggle('hidden',!items.length||count>0);}}
+input.addEventListener('input',update);select.addEventListener('change',update);
+}}
 const freshness=document.querySelector('#freshness');if(freshness.dataset.date){{const days=(Date.now()-Date.parse(freshness.dataset.date+'T15:30:00+09:00'))/86400000;if(days>4)freshness.textContent='최근 거래일 또는 수집·배포 상태를 확인하세요.';}}
 </script></body></html>'''
     destination.mkdir(parents=True, exist_ok=True)
@@ -141,6 +184,8 @@ const freshness=document.querySelector('#freshness');if(freshness.dataset.date){
             shutil.copyfile(source / f"{prefix}-{as_of}.csv", destination / f"{prefix}-{as_of}.csv")
         if 'turnover_displayed' in meta:
             shutil.copyfile(source / f"turnover40-{as_of}.csv", destination / f"turnover40-{as_of}.csv")
+        for prefix in activity_tables:
+            shutil.copyfile(source / f'{prefix}-{as_of}.csv', destination / f'{prefix}-{as_of}.csv')
         # Publish only metadata produced by our application, never cache or credentials.
         (destination / "latest.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     (destination / ".nojekyll").touch()
