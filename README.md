@@ -71,7 +71,7 @@ KRX 공식 Open API로 전환할 때 `MarketDataProvider.collect(requested)`를 
 
 - 웹사이트: https://jaehochoidev-star.github.io/rs_indicator/
 - 실행 상태: https://github.com/jaehochoidev-star/rs_indicator/actions
-- `.github/workflows/monitor.yml`이 월~금 **21:00 KST (UTC 12:00)**에 수집을 시작합니다. GitHub 예약 작업은 혼잡할 때 지연될 수 있으며, 페이지는 전체 수집 완료 후 갱신됩니다. 현재 전체 수집은 2,700여 종목의 순차 조회로 약 1시간 이상 소요될 수 있습니다.
+- `.github/workflows/monitor.yml`이 월~금 **20:00 KST (UTC 11:00)**에 수집을 시작합니다. GitHub 예약 작업은 혼잡할 때 지연될 수 있으며, 페이지는 전체 수집 완료 후 갱신됩니다. 현재 전체 수집은 2,700여 종목의 순차 조회로 약 1시간 이상 소요될 수 있습니다.
 - GitHub 서버에서 실행되므로 PC를 켜둘 필요가 없습니다. 저장소의 Actions Secrets `KRX_ID`, `KRX_PW`를 사용합니다. 비밀번호를 공개 파일이나 페이지에 저장하지 않습니다.
 - 휴장일에는 종목별 수집과 재배포를 건너뜁니다. 조회 실패 시 작업이 실패로 표시되고 기존 페이지는 유지됩니다. 화면의 기준일과 갱신 시각, Actions 상태를 확인하세요.
 - 수동 실행: Actions → **RS Monitor & GitHub Pages** → Run workflow. `date`를 비워두면 최신 완료 날짜, 지정하면 해당 과거 날짜의 결과로 페이지를 갱신합니다.
@@ -85,3 +85,5 @@ KRX 공식 Open API로 전환할 때 `MarketDataProvider.collect(requested)`를 
 종목명 앞에 기준일의 KRX 업종 분류를 표시합니다. 업종명으로 검색할 수 있으며 CSV에도 sector 열이 포함됩니다. 조회되지 않은 업종은 미분류로 표시합니다. 기존 게시 결과에는 업종만 보강하며 RS 점수와 순서는 변경하지 않습니다.
 
 표는 처음 20개를 표시하고, 하단의 '40개 보기'로 최대 40개까지 펼칠 수 있습니다. 검색과 시장 필터는 접힌 종목을 포함한 전체 40개에 적용됩니다. TOP40 CSV는 40개 전체를 제공합니다.
+
+토·일요일(한국시간)에는 예약 지연 또는 수동 실행이어도 시장 데이터 수집을 건너뜁니다. 평일 거래소 휴장일도 기존 결과를 유지합니다. 22시 전 게시를 목표로 20시에 예약하지만 GitHub 예약 실행 지연 및 수집 상황에 따라 늦어질 수 있습니다.
