@@ -3,6 +3,7 @@ name: RS Monitor & GitHub Pages
 on:
   schedule:
     - cron: '0 11 * * 1-5' # 20:00 Asia/Seoul, weekdays (UTC+9, no DST)
+    - cron: '17 11 * * 1-5' # Backup at 20:17; skip an already-published session
   workflow_dispatch:
     inputs:
       date:
@@ -69,6 +70,7 @@ jobs:
         env:
           REQUESTED_DATE: ${{ inputs.date }}
           CACHE_DATE: ${{ inputs.cache_date }}
+          SCHEDULED: ${{ github.event_name == 'schedule' }}
         run: |
           python - <<'PY'
           import os
@@ -78,19 +80,30 @@ jobs:
           value = resolve_date(os.environ.get('REQUESTED_DATE'), datetime.now(ZoneInfo('Asia/Seoul'))).isoformat()
           cache_date = os.environ.get('CACHE_DATE') or value
           date.fromisoformat(cache_date)
+          import json
+          from pathlib import Path
+          published = Path('docs/latest.json')
+          latest = json.loads(published.read_text(encoding='utf-8')) if published.exists() else {}
+          already_done = (os.environ.get('SCHEDULED') == 'true'
+                          and latest.get('status') == 'success'
+                          and latest.get('as_of', '') >= value)
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write('date=' + value + '\n')
               f.write('cache_date=' + cache_date + '\n')
+              f.write('collect=' + str(not already_done).lower() + '\n')
+          if already_done:
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+                  f.write('This session is already published; skipping duplicate scheduled collection.\n')
           PY
       - uses: actions/cache/restore@v4
-        if: github.event_name != 'push' && steps.calendar.outputs.collect == 'true'
+        if: steps.date.outputs.collect == 'true'
         with:
           path: data/cache
           key: krx-v1-${{ runner.os }}-${{ steps.date.outputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             krx-v1-${{ runner.os }}-${{ steps.date.outputs.cache_date }}-
       - name: Collect and rank
-        if: github.event_name != 'push' && steps.calendar.outputs.collect == 'true'
+        if: steps.date.outputs.collect == 'true'
         env:
           KRX_ID: ${{ secrets.KRX_ID }}
           KRX_PW: ${{ secrets.KRX_PW }}
@@ -104,7 +117,7 @@ jobs:
           python -m krx_rs_monitor "${args[@]}"
       - name: Save resumable cache
         uses: actions/cache/save@v4
-        if: always() && github.event_name != 'push' && steps.date.outputs.date != ''
+        if: always() && steps.date.outputs.collect == 'true'
         with:
           path: data/cache
           key: krx-v1-${{ runner.os }}-${{ steps.date.outputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}
