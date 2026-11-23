@@ -1,0 +1,5 @@
+﻿ticker,name,base_price,close,volume,turnover_today,change_pct,market,sector,is_new_listing,upper_limit,limit_up
+005930,삼성전자,183100,177500,19587800,3456035825114,-3.05999994,KOSPI,전기·전자,False,238000,False
+471800,에이엘로봇,10690,11460,12431309,144655479405,7.19999981,KOSDAQ,기계·장비,False,13890,False
+104620,노랑풍선,4580,4695,12251903,60349312277,2.50999999,KOSDAQ,일반서비스,False,5950,False
+090710,휴림로봇,4400,5720,10323666,56352076170,30.00000000,KOSDAQ,기계·장비,False,5720,True
