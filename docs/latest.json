@@ -1,17 +1,17 @@
 {
   "turnover_displayed": 40,
   "turnover_sessions": [
-    "2026-11-18",
     "2026-11-19",
     "2026-11-20",
     "2026-11-23",
-    "2026-11-24"
+    "2026-11-24",
+    "2026-11-25"
   ],
   "status": "success",
   "provider": "PykrxProvider",
-  "requested_date": "2026-11-24",
-  "as_of": "2026-11-24",
-  "generated_at": "2026-11-25T06:53:29.554544+09:00",
+  "requested_date": "2026-11-25",
+  "as_of": "2026-11-25",
+  "generated_at": "2026-11-26T06:14:20.171060+09:00",
   "settings": {
     "weights": [
       10,
@@ -29,18 +29,18 @@
     "universe": 2772,
     "eligible": 2741,
     "excluded_short_or_invalid_history": 31,
-    "matched": 28,
-    "displayed": 28
+    "matched": 33,
+    "displayed": 33
   },
   "percentile": "average rank / eligible combined universe size * 100",
   "price_basis": "adjusted closes",
   "turnover_currency": "KRW",
   "average_includes_as_of": true,
   "activity": {
-    "limit_up": 12,
+    "limit_up": 9,
     "volume10m": 6,
     "volume_threshold": 10000000,
     "limit_up_rule": "ordinary 30% closing limit, listing-day exclusions",
-    "listing_day_excluded": 1
+    "listing_day_excluded": 0
   }
 }
